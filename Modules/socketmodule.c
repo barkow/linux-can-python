@@ -1633,6 +1633,49 @@ getsockaddrarg(PySocketSockObject *s, PyObject *args,
             Py_DECREF(interfaceName);
             return 1;
         }
+        case CAN_ISOTP:
+        {
+            struct sockaddr_can *addr;
+            PyObject *interfaceName;
+            struct ifreq ifr;
+            Py_ssize_t len;
+            unsigned int txId;
+            unsigned int rxId;
+
+            addr = (struct sockaddr_can *)addr_ret;
+
+            if (!PyArg_ParseTuple(args, "O&II", PyUnicode_FSConverter,
+                                              &interfaceName, &txId, &rxId))
+                return 0;
+
+            len = PyBytes_GET_SIZE(interfaceName);
+
+            if (len == 0) {
+                ifr.ifr_ifindex = 0;
+            } else if (len < sizeof(ifr.ifr_name)) {
+                strncpy(ifr.ifr_name, PyBytes_AS_STRING(interfaceName), sizeof(ifr.ifr_name));
+                ifr.ifr_name[(sizeof(ifr.ifr_name))-1] = '\0';
+                if (ioctl(s->sock_fd, SIOCGIFINDEX, &ifr) < 0) {
+                    s->errorhandler();
+                    Py_DECREF(interfaceName);
+                    return 0;
+                }
+            } else {
+                PyErr_SetString(PyExc_OSError,
+                                "AF_CAN interface name too long");
+                Py_DECREF(interfaceName);
+                return 0;
+            }
+
+            addr->can_family = AF_CAN;
+            addr->can_ifindex = ifr.ifr_ifindex;
+            addr->can_addr.tp.tx_id = txId;
+            addr->can_addr.tp.rx_id = rxId;
+
+            *len_ret = sizeof(*addr);
+            Py_DECREF(interfaceName);
+            return 1;
+        }
         default:
             PyErr_SetString(PyExc_OSError,
                             "getsockaddrarg: unsupported CAN protocol");
@@ -6295,6 +6338,8 @@ PyInit__socket(void)
 #ifdef SOL_CAN_RAW
     PyModule_AddIntMacro(m, SOL_CAN_RAW);
     PyModule_AddIntMacro(m, CAN_RAW);
+    PyModule_AddIntMacro(m, SOL_CAN_ISOTP);
+    PyModule_AddIntMacro(m, CAN_ISOTP);
 #endif
 #ifdef HAVE_LINUX_CAN_H
     PyModule_AddIntMacro(m, CAN_EFF_FLAG);

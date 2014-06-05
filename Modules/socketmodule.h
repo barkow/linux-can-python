@@ -78,6 +78,7 @@ typedef int socklen_t;
 
 #ifdef HAVE_LINUX_CAN_RAW_H
 #include <linux/can/raw.h>
+#include <linux/can/isotp.h>
 #endif
 
 #ifdef HAVE_LINUX_CAN_BCM_H
